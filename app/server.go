@@ -7,13 +7,23 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 )
 
 //var Commands = map[string]func([]Value) Value{
 //	"PING": ping
 //	"ECHO": echo
 //}
-var values = map[string]string{}
+
+type Entry struct {
+	Value       string
+	TimeCreated time.Time
+	ExpiresAt   time.Time
+}
+
+type Cache map[string]*Entry
+
+var cache = Cache{}
 
 func main() {
 	fmt.Println("Logs from your program will appear here!")
@@ -67,19 +77,34 @@ func parseToString(buf []byte) string {
 		} else if command == "PING" {
 			return "+PONG\r\n"
 		} else if command == "SET" {
-			//log.Println(split[6])
-			//log.Println(split[4])
+			expiry := time.Time{}
 			key := split[4]
 			value := split[6]
-			values[key] = value
+			now := time.Now()
+			log.Println(split[8])
+			log.Println(split[10])
+			duration, _ := strconv.ParseInt(split[10], 10, 64)
+			switch split[8] {
+			case "px":
+				expiry = now.Add(time.Duration(duration) * time.Millisecond)
+			case "ex":
+				expiry = now.Add(time.Duration(duration) * time.Second)
+			default:
+				return "Time invalid"
+			}
+			cache[key] = &Entry{
+				Value:       value,
+				TimeCreated: now,
+				ExpiresAt:   expiry,
+			}
 			return "+OK\r\n"
 		} else if command == "GET" {
 			key := split[4]
-			value := values[key]
-			if value == "" {
+			value, found := cache[key]
+			if !found || (value.ExpiresAt.Before(time.Now()) && value.ExpiresAt != time.Time{}) {
 				return "$-1\r\n"
 			}
-			return "$" + strconv.Itoa(len(value)) + "\r\n" + value + "\r\n"
+			return fmt.Sprintf("$%d\r\n%v\r\n", len(value.Value), value.Value)
 		}
 	}
 	return ""
