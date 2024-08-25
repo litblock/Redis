@@ -5,6 +5,7 @@ import (
 	"log"
 	"net"
 	"os"
+	"strconv"
 	"strings"
 )
 
@@ -12,6 +13,7 @@ import (
 //	"PING": ping
 //	"ECHO": echo
 //}
+var values = map[string]string{}
 
 func main() {
 	fmt.Println("Logs from your program will appear here!")
@@ -65,9 +67,19 @@ func parseToString(buf []byte) string {
 		} else if command == "PING" {
 			return "+PONG\r\n"
 		} else if command == "SET" {
-			
+			//log.Println(split[6])
+			//log.Println(split[4])
+			key := split[4]
+			value := split[6]
+			values[key] = value
+			return "+OK\r\n"
 		} else if command == "GET" {
-
+			key := split[4]
+			value := values[key]
+			if value == "" {
+				return "$-1\r\n"
+			}
+			return "$" + strconv.Itoa(len(value)) + "\r\n" + value + "\r\n"
 		}
 	}
 	return ""
