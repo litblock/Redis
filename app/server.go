@@ -18,14 +18,14 @@ func main() {
 
 	l, err := net.Listen("tcp", "0.0.0.0:6379")
 	if err != nil {
-		fmt.Println("Failed to bind to port 6379")
+		log.Println("Failed to bind to port 6379")
 		os.Exit(1)
 	}
 
 	for {
 		connection, err := l.Accept()
 		if err != nil {
-			fmt.Println("Error accepting connection: ", err.Error())
+			log.Println("Error accepting connection: ", err.Error())
 			os.Exit(1)
 		}
 		go handleRequest(connection)
@@ -35,21 +35,40 @@ func main() {
 func handleRequest(connection net.Conn) {
 	buf := make([]byte, 1024)
 	for {
-		n, err := connection.Read(buf)
+		_, err := connection.Read(buf)
 		if err != nil {
-			fmt.Println("Error while trying to read:", err.Error())
+			log.Println("Error while trying to read:", err.Error())
 		}
-		log.Println("read: ", n)
-		parseToString(buf)
-		//_, err = connection.Write([]byte("+PONG\r\n"))
+		msg := parseToString(buf)
+		if msg == "" {
+			log.Println("Invalid Command")
+		}
+		_, err = connection.Write([]byte(msg))
 		if err != nil {
-			fmt.Println("Error trying to write", err.Error())
+			log.Println("Error trying to write", err.Error())
 		}
 	}
 }
 
-func parseToString(buf []byte) {
+func parseToString(buf []byte) string {
 	input := (string)(buf)
 	split := strings.Split(input, "\r\n")
 	log.Println(split)
+	if split[0][0] == '*' {
+		command := strings.ToUpper(split[2])
+		if command == "ECHO" {
+			var out strings.Builder
+			for i := 3; i < len(split)-1; i++ {
+				out.WriteString(split[i] + "\r\n")
+			}
+			return out.String()
+		} else if command == "PING" {
+			return "+PONG\r\n"
+		} else if command == "SET" {
+			
+		} else if command == "GET" {
+
+		}
+	}
+	return ""
 }
