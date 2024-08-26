@@ -51,7 +51,6 @@ func main() {
 		log.Println("Failed to bind to port 6379")
 		os.Exit(1)
 	}
-	loadRDB()
 	for {
 		connection, err := l.Accept()
 		if err != nil {
@@ -138,13 +137,13 @@ func parseToString(buf []byte) string {
 				return "Error"
 			}
 		} else if command == "KEYS" {
+			loadRDB()
 			//log.Println(cache)
 			if split[4] == "*" {
-				
-				out := "*2\r\n"
-				for key, value := range cache {
-					log.Println(key, value)
-
+				log.Println(len(cache))
+				out := "*" + strconv.Itoa(len(cache)) + "\r\n"
+				for key := range cache {
+					out += "$" + strconv.Itoa(len(key)) + "\r\n" + key + "\r\n"
 				}
 				return out
 			} else {
@@ -184,12 +183,18 @@ func loadRDB() {
 		return
 	}
 	line := parseTable(data)
+	log.Println(line)
 	key := line[4 : 4+line[3]]
 	value := line[5+line[3]:]
-
+	log.Println(key, value)
+	log.Println(string(value))
 	cache[string(key)] = &Entry{
 		Value:       string(value),
 		TimeCreated: time.Now(),
 		ExpiresAt:   time.Time{},
 	}
+}
+
+func readKeys(data []byte) *Entry {
+	return nil
 }
