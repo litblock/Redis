@@ -11,6 +11,19 @@ import (
 	"time"
 )
 
+//took from examples
+const (
+	opCodeModuleAux    byte = 247 /* Module auxiliary data. */
+	opCodeIdle         byte = 248 /* LRU idle time. */
+	opCodeFreq         byte = 249 /* LFU frequency. */
+	opCodeAux          byte = 250 /* RDB aux field. */
+	opCodeResizeDB     byte = 251 /* Hash table resize hint. */
+	opCodeExpireTimeMs byte = 252 /* Expire time in milliseconds. */
+	opCodeExpireTime   byte = 253 /* Old expire time in seconds. */
+	opCodeSelectDB     byte = 254 /* DB number of the following keys. */
+	opCodeEOF          byte = 255
+)
+
 //var Commands = map[string]func([]Value) Value{
 //	"PING": ping
 //	"ECHO": echo
@@ -71,7 +84,7 @@ func handleRequest(connection net.Conn) {
 func parseToString(buf []byte) string {
 	input := (string)(buf)
 	split := strings.Split(input, "\r\n")
-	log.Println(split)
+	//log.Println(split)
 	if split[0][0] == '*' {
 		command := strings.ToUpper(split[2])
 		if command == "ECHO" {
@@ -125,7 +138,39 @@ func parseToString(buf []byte) string {
 			} else {
 				return "Error"
 			}
+		} else if command == "KEYS" {
+			print(split[4])
+			if split[4] == "*" {
+				out := readFile(*dir + "/" + *dbFileName)
+				return fmt.Sprintf("*1\r\n$%d\r\n%s\r\n", len(out), out)
+			} else {
+				return "error"
+			}
 		}
 	}
 	return ""
+}
+
+func sliceIndex(data []byte, sep byte) int {
+	for i, b := range data {
+		if b == sep {
+			return i
+		}
+	}
+	return -1
+}
+func parseTable(bytes []byte) []byte {
+	start := sliceIndex(bytes, opCodeResizeDB)
+	end := sliceIndex(bytes, opCodeEOF)
+	return bytes[start+1 : end]
+}
+
+func readFile(path string) string {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		log.Println("error opening file")
+	}
+	key := parseTable(data)
+	str := key[4 : 4+key[3]]
+	return string(str)
 }
