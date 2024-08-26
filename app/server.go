@@ -43,7 +43,6 @@ var dir = flag.String("dir", "", "Directory to store RDB file")
 var dbFileName = flag.String("dbfilename", "dump.rdb", "RDB file name")
 
 func main() {
-
 	flag.Parse()
 	fmt.Println("Logs from your program will appear here!")
 
@@ -52,7 +51,7 @@ func main() {
 		log.Println("Failed to bind to port 6379")
 		os.Exit(1)
 	}
-
+	loadRDB()
 	for {
 		connection, err := l.Accept()
 		if err != nil {
@@ -139,12 +138,22 @@ func parseToString(buf []byte) string {
 				return "Error"
 			}
 		} else if command == "KEYS" {
-			print(split[4])
+			//log.Println(cache)
 			if split[4] == "*" {
-				out := readFile(*dir + "/" + *dbFileName)
-				return fmt.Sprintf("*1\r\n$%d\r\n%s\r\n", len(out), out)
+				
+				out := "*2\r\n"
+				for key, value := range cache {
+					log.Println(key, value)
+
+				}
+				return out
 			} else {
-				return "error"
+				key := split[4]
+				value, found := cache[key]
+				if !found || (value.ExpiresAt.Before(time.Now()) && value.ExpiresAt != time.Time{}) {
+					return "$-1\r\n"
+				}
+				return fmt.Sprintf("$%d\r\n%v\r\n", len(value.Value), value.Value)
 			}
 		}
 	}
@@ -165,12 +174,22 @@ func parseTable(bytes []byte) []byte {
 	return bytes[start+1 : end]
 }
 
-func readFile(path string) string {
-	data, err := os.ReadFile(path)
+func loadRDB() {
+	log.Println("loading rdb")
+	data, err := os.ReadFile(*dir + "/" + *dbFileName)
 	if err != nil {
 		log.Println("error opening file")
 	}
-	key := parseTable(data)
-	str := key[4 : 4+key[3]]
-	return string(str)
+	if len(data) == 0 {
+		return
+	}
+	line := parseTable(data)
+	key := line[4 : 4+line[3]]
+	value := line[5+line[3]:]
+
+	cache[string(key)] = &Entry{
+		Value:       string(value),
+		TimeCreated: time.Now(),
+		ExpiresAt:   time.Time{},
+	}
 }
