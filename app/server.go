@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"log"
 	"net"
@@ -25,7 +26,12 @@ type Cache map[string]*Entry
 
 var cache = Cache{}
 
+var dir = flag.String("dir", "", "Directory to store RDB file")
+var dbFileName = flag.String("dbfilename", "dump.rdb", "RDB file name")
+
 func main() {
+
+	flag.Parse()
 	fmt.Println("Logs from your program will appear here!")
 
 	l, err := net.Listen("tcp", "0.0.0.0:6379")
@@ -81,22 +87,26 @@ func parseToString(buf []byte) string {
 			key := split[4]
 			value := split[6]
 			now := time.Now()
-			log.Println(split[8])
-			log.Println(split[10])
-			duration, _ := strconv.ParseInt(split[10], 10, 64)
-			switch split[8] {
-			case "px":
-				expiry = now.Add(time.Duration(duration) * time.Millisecond)
-			case "ex":
-				expiry = now.Add(time.Duration(duration) * time.Second)
-			default:
-				return "Time invalid"
+			log.Println(len(split))
+			if len(split) > 8 {
+				log.Println(split[8])
+				log.Println(split[10])
+				duration, _ := strconv.ParseInt(split[10], 10, 64)
+				switch split[8] {
+				case "px":
+					expiry = now.Add(time.Duration(duration) * time.Millisecond)
+				case "ex":
+					expiry = now.Add(time.Duration(duration) * time.Second)
+				default:
+					return "Time invalid"
+				}
 			}
 			cache[key] = &Entry{
 				Value:       value,
 				TimeCreated: now,
 				ExpiresAt:   expiry,
 			}
+
 			return "+OK\r\n"
 		} else if command == "GET" {
 			key := split[4]
@@ -105,6 +115,16 @@ func parseToString(buf []byte) string {
 				return "$-1\r\n"
 			}
 			return fmt.Sprintf("$%d\r\n%v\r\n", len(value.Value), value.Value)
+		} else if command == "CONFIG" {
+			//log.Println(split)
+			log.Println(*dir)
+			if split[4] == "GET" && split[6] == "dir" {
+				return fmt.Sprintf("*2\r\n$3\r\ndir\r\n$%d\r\n%s\r\n", len(*dir), *dir)
+			} else if split[4] == "GET" && split[6] == "dbfilename" {
+				return fmt.Sprintf("*2\r\n$10\r\ndbfilename\r\n$%d\r\n%s\r\n", len(*dbFileName), *dbFileName)
+			} else {
+				return "Error"
+			}
 		}
 	}
 	return ""
