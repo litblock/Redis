@@ -1,3 +1,5 @@
+![image](https://github.com/user-attachments/assets/a9238702-5bc3-4947-9dc7-269839a243c8)
+
 [![progress-banner](https://backend.codecrafters.io/progress/redis/16f586b4-7eda-4f84-aa59-b46a473b1445)](https://app.codecrafters.io/users/codecrafters-bot?r=2qF)
 
 This is a starting point for Go solutions to the
